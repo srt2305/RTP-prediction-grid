@@ -1,0 +1,56 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      timescale:
+        image: timescale/timescaledb:2.17.2-pg16
+        env:
+          POSTGRES_USER: rtp
+          POSTGRES_PASSWORD: rtp
+          POSTGRES_DB: rtp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rtp -d rtp"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+    env:
+      RTP_POSTGRES_DSN: postgres://rtp:rtp@localhost:5432/rtp
+      RTP_REDIS_ADDR: localhost:6379
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: backend/go.sum
+
+      - run: go build ./...
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.1.6
+          working-directory: backend
+
+      - name: Enable the timescaledb extension
+        run: psql "$RTP_POSTGRES_DSN" -c 'CREATE EXTENSION IF NOT EXISTS timescaledb;'
+
+      # Integration tests skip themselves when the stack is absent, so the
+      # services above are what makes them actually run.
+      - run: go test -race ./...

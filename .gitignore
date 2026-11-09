@@ -1,0 +1,13 @@
+/bin/
+frontend/node_modules/
+frontend/.next/
+frontend/next-env.d.ts
+frontend/tsconfig.tsbuildinfo
+frontend/AGENTS.md
+frontend/CLAUDE.md
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+backend/coverage.out
